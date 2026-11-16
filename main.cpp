@@ -99,6 +99,52 @@ static string readFile(const string& path) {
     stringstream buffer; buffer << in.rdbuf(); return buffer.str();
 }
 
+static string jsonEscape(const string& s) {
+    string out;
+    for (unsigned char c : s) {
+        switch (c) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (c < 32) {
+                    const char* hex = "0123456789abcdef";
+                    out += "\\u00";
+                    out += hex[c >> 4]; out += hex[c & 15];
+                } else out += static_cast<char>(c);
+        }
+    }
+    return out;
+}
+
+static void printJson(const vector<Token>& tokens, const vector<string>& errors) {
+    cout << "{\"tokens\":[";
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        const auto& t = tokens[i];
+        if (i) cout << ',';
+        cout << "{\"lexeme\":\"" << jsonEscape(t.lexeme)
+             << "\",\"type\":\"" << jsonEscape(t.type)
+             << "\",\"line\":" << t.line << ",\"column\":" << t.column << '}';
+    }
+    cout << "],\"errors\":[";
+    for (size_t i = 0; i < errors.size(); ++i) {
+        if (i) cout << ',';
+        cout << '"' << jsonEscape(errors[i]) << '"';
+    }
+    cout << "],\"summary\":{";
+    map<string,int> freq;
+    for (const auto& t : tokens) ++freq[t.type];
+    bool first = true;
+    for (const auto& kv : freq) {
+        if (!first) cout << ',';
+        first = false;
+        cout << '"' << jsonEscape(kv.first) << "\":" << kv.second;
+    }
+    cout << "},\"total\":" << tokens.size() << "}" << endl;
+}
+
 static void printTokens(const vector<Token>& tokens) {
     cout << "\nLEXICAL ANALYSIS\n";
     cout << left << setw(22) << "LEXEME" << setw(18) << "TOKEN" << "POSITION\n";
@@ -116,7 +162,8 @@ static void printTokens(const vector<Token>& tokens) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
+    bool jsonMode = argc == 4 && string(argv[3]) == "--json";
+    if (argc != 3 && !jsonMode) {
         cout << "Mini LEX Tool (C++17)\n"
              << "Usage:\n"
              << "  mini_lex <lex-spec> <source-file>\n";
@@ -128,10 +175,15 @@ int main(int argc, char* argv[]) {
         string source = readFile(argv[2]);
         vector<Token> tokens; vector<string> errors;
         lexer.scan(source, tokens, errors);
-        printTokens(tokens);
-        for (auto& e : errors) cerr << e << "\n";
-        if (errors.empty()) cout << "\nRESULT: Lexical analysis completed with no errors.\n";
-        else cout << "\nRESULT: " << errors.size() << " lexical error(s) found.\n";
+        if (jsonMode) printJson(tokens, errors);
+        else {
+            printTokens(tokens);
+            for (auto& e : errors) cerr << e << "\n";
+        }
+        if (!jsonMode) {
+            if (errors.empty()) cout << "\nRESULT: Lexical analysis completed with no errors.\n";
+            else cout << "\nRESULT: " << errors.size() << " lexical error(s) found.\n";
+        }
         return errors.empty() ? 0 : 2;
     } catch (const exception& e) {
         cerr << "Error: " << e.what() << "\n"; return 1;

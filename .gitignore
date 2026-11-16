@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+mini_lex
+mini_lex.exe
+.DS_Store
