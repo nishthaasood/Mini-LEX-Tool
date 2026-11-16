@@ -1,0 +1,8 @@
+// sample program
+int count = 10;
+float rate = 3.14;
+while (count >= 1) {
+    total = total + count * rate;
+    if (total != 100) return total;
+}
+print("done", integer);
